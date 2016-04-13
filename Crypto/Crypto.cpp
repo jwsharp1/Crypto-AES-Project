@@ -6,11 +6,14 @@
 #include <iostream>
 using namespace std;
 
+#define byte unsigned char
+//typedef unsigned char byte;
+
 //****************************************************************
 //********************* Global Variables *************************
 int Nb = 4;
 int Nr, Nk = 0;
-int theState[4][4];
+byte theState[4][4];
 //****************************************************************
 //********************* Forward Declarations *********************
 void userInput();
@@ -43,7 +46,7 @@ int sBoxLookup(int x) {				//SBox is a hex table that is used in the SubBytes() 
 // This function recieves the input message to be encoded and the user's private key.
 void userInput() {
 	char message[16];
-	char key[132];
+	char key[32];
 	cout << "Enter the message to be encoded:\n" << endl;
 	cin.getline(message, 16, '\n');							// cin.getline() is used to avoid a buffer overflow attack. cin.getline() ignores characters that proceed the terminating character '\n'
 	cout << "Enter your private key:\n" << endl;
@@ -55,19 +58,27 @@ void userInput() {
 void ShiftRows() {
 	char tempRowVal;
 
-	// FIRST ROW SHIFTS: shift the first row one column to the left
-	tempRowVal = theState[1][0];		// copy col 0 to temp
-	theState[1][0] = theState[1][1];	// move col 1 to 0 position
-	theState[1][1] = theState[1][2];	// move col 2 to 1 position
-	theState[1][2] = theState[1][3];	// move col 3 to 2 position
+	// SECOND ROW SHIFTS: shift the row one column to the left															___________
+	tempRowVal = theState[1][0];		// copy col 0 to temp														  0|__|__|__|__| NO SHIFT
+	theState[1][0] = theState[1][1];	// move col 1 to 0 position									 shift 1 left ->  1|__|__|__|__| SECOND ROW SHIFT
+	theState[1][1] = theState[1][2];	// move col 2 to 1 position									 shift 2 left ->  2|__|__|__|__| THIRD ROW SHIFT
+	theState[1][2] = theState[1][3];	// move col 3 to 2 position									 shift 3 left ->  3|__|__|__|__| FOURTH ROW SHIFT
 	theState[1][3] = tempRowVal;		// wrap around; copy original col 0 to 3 position
 
-	// SECOND ROW SHIFTS: shift the second row two colums to the left
+	// THIRD ROW SHIFTS: shift the second row two columns to the left
 	tempRowVal = theState[2][0];		// copy col 0 to temp
 	theState[2][0] = theState[2][2];	// copy col 2 to col 0
+	theState[2][2] = tempRowVal;		// copy tempRowVal to col 2
+	tempRowVal = theState[2][1];		// copy col 1 to temp
 	theState[2][1] = theState[2][3];	// copy col 3 to col 1
-	theState[2][2] = theState[2][0];	// error
+	theState[2][3] = tempRowVal;		// copy the temp to col 3
 
+	// FOURTH ROW SHIFTS: shifts the row values three columns to the left (equivalent to shifting right by 1)
+	tempRowVal = theState[3][0];		// copy col 0 to temp
+	theState[3][0] = theState[3][3];	// copy col 3 to col 0
+	theState[3][3] = theState[3][2];	// copy col 2 to col 3
+	theState[3][2] = theState[3][1];	// copy col 1 to col 2
+	theState[3][1] = tempRowVal;;		// copy temp to col 1
 }
 void expandKey(unsigned char* key) {
 
