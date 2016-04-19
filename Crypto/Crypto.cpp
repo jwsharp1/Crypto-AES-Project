@@ -16,7 +16,16 @@ int Nr, Nk = 0;
 byte theState[4][4];
 //****************************************************************
 //********************* Forward Declarations *********************
+int sBoxLookup(int x);
 void userInput();
+void subBytes();
+void shiftRows();
+void mixColumns();
+void addRoundKey();
+void invShiftRows();
+void invSubBytes();
+void invMixColumns();
+void invAddRoundKey();
 void expandKey(char* message);
 //****************************************************************
 //****************************************************************
@@ -55,6 +64,14 @@ void userInput() {
 	expandKey(message);
 }
 
+void subBytes() {					// this function replaces the values in the state array with values from the SBox table
+	for (int i = 0; i < 4; i++) {
+		for (int j = 0; j < 4; j++) {
+			theState[i][j] = sBoxLookup(theState[i][j]);
+		}
+	}
+}
+
 void ShiftRows() {
 	char tempRowVal;
 
@@ -80,17 +97,40 @@ void ShiftRows() {
 	theState[3][2] = theState[3][1];	// copy col 1 to col 2
 	theState[3][1] = tempRowVal;;		// copy temp to col 1
 }
-void expandKey(unsigned char* key) {
 
-	
+void mixColumns()
+{
+
 }
 
-void subBytes() {					// this function replaces the values in the state array with values from the SBox table
-	for (int i = 0; i < 4; i++) {
-		for (int j = 0; j < 4; j++) {
-			theState[i][j] = sBoxLookup(theState[i][j]);
-		}
-	}
+void addRoundKey()
+{
+
+}
+
+void invShiftRows()
+{
+
+}
+
+void invSubBytes()
+{
+
+}
+
+void invMixColumns()
+{
+
+}
+
+void invAddRoundKey()
+{
+
+}
+
+void expandKey(unsigned char* key) {
+
+
 }
 
 void main() {
