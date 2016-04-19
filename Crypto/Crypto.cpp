@@ -16,8 +16,26 @@ int Nr, Nk = 0;
 byte theState[4][4];
 //****************************************************************
 //********************* Forward Declarations *********************
+int sBoxLookup(int x);
 void userInput();
-void expandKey(char* message);
+
+//transformations
+void subBytes();
+void shiftRows();
+void mixColumns();
+void addRoundKey();
+void invShiftRows();
+void invSubBytes();
+void invMixColumns();
+void invAddRoundKey();
+
+//arithmetic
+//note addition is equal to bitwise xor so use ^
+byte xtime(byte a);
+byte x_nTime(byte a, int n);
+byte multiply(byte a, byte b);
+
+void expandKey(unsigned char* key);
 //****************************************************************
 //****************************************************************
 
@@ -55,8 +73,16 @@ void userInput() {
 	expandKey(message);
 }
 
-void ShiftRows() {
-	char tempRowVal;
+void subBytes() {					// this function replaces the values in the state array with values from the SBox table
+	for (int i = 0; i < 4; i++) {
+		for (int j = 0; j < 4; j++) {
+			theState[i][j] = sBoxLookup(theState[i][j]);
+		}
+	}
+}
+
+void shiftRows() {
+	byte tempRowVal;
 
 	// SECOND ROW SHIFTS: shift the row one column to the left															___________
 	tempRowVal = theState[1][0];		// copy col 0 to temp														  0|__|__|__|__| NO SHIFT
@@ -65,7 +91,7 @@ void ShiftRows() {
 	theState[1][2] = theState[1][3];	// move col 3 to 2 position									 shift 3 left ->  3|__|__|__|__| FOURTH ROW SHIFT
 	theState[1][3] = tempRowVal;		// wrap around; copy original col 0 to 3 position
 
-	// THIRD ROW SHIFTS: shift the second row two columns to the left
+										// THIRD ROW SHIFTS: shift the second row two columns to the left
 	tempRowVal = theState[2][0];		// copy col 0 to temp
 	theState[2][0] = theState[2][2];	// copy col 2 to col 0
 	theState[2][2] = tempRowVal;		// copy tempRowVal to col 2
@@ -73,24 +99,141 @@ void ShiftRows() {
 	theState[2][1] = theState[2][3];	// copy col 3 to col 1
 	theState[2][3] = tempRowVal;		// copy the temp to col 3
 
-	// FOURTH ROW SHIFTS: shifts the row values three columns to the left (equivalent to shifting right by 1)
+										// FOURTH ROW SHIFTS: shifts the row values three columns to the left (equivalent to shifting right by 1)
 	tempRowVal = theState[3][0];		// copy col 0 to temp
 	theState[3][0] = theState[3][3];	// copy col 3 to col 0
 	theState[3][3] = theState[3][2];	// copy col 2 to col 3
 	theState[3][2] = theState[3][1];	// copy col 1 to col 2
 	theState[3][1] = tempRowVal;;		// copy temp to col 1
 }
-void expandKey(unsigned char* key) {
 
-	
+void mixColumns()
+{
+	byte polynomialA[4][4] = { { 0x02, 0x03, 0x01, 0x01 },
+	{ 0x01, 0x02, 0x03, 0x01 },
+	{ 0x01, 0x01, 0x02, 0x03 },
+	{ 0x03, 0x01, 0x01, 0x02 } };
+	byte newColumnVals[4];
+
+	for (int c = 0; c < 4; c++)
+	{	//c is column index
+
+		//calculate the matrix multiplication of the 2d array and column c from the state
+		for (int i = 0; i < 4; i++)
+		{	//i is index of row for the 2d array
+			byte sumOfProducts = 0x00;
+			for (int j = 0; j < 4; j++)
+			{	//j is the column
+				sumOfProducts = sumOfProducts ^ multiply(polynomialA[i][j], theState[j][c]);
+			}
+			newColumnVals[i] = sumOfProducts;
+		}
+		//store calculated values in column c of the state
+		for (int i = 0; i < 4; i++)
+		{
+			theState[i][c] = newColumnVals[i];
+		}
+		//loop runs again on every column of the state
+	}
 }
 
-void subBytes() {					// this function replaces the values in the state array with values from the SBox table
-	for (int i = 0; i < 4; i++) {
-		for (int j = 0; j < 4; j++) {
-			theState[i][j] = sBoxLookup(theState[i][j]);
+void addRoundKey()
+{
+
+}
+
+void invShiftRows()
+{
+
+}
+
+void invSubBytes()
+{
+
+}
+
+void invMixColumns()
+{
+	byte invPolynomialA[4][4] = { { 0x0e, 0x0b, 0x0d, 0x09 },
+								  { 0x09, 0x0e, 0x0b, 0x0d },
+								  { 0x0d, 0x09, 0x0e, 0x0b },
+								  { 0x0b, 0x0d, 0x09, 0x0e } };
+	byte newColumnVals[4];
+
+	for (int c = 0; c < 4; c++)
+	{	//c is column index
+		
+		//calculate the matrix multiplication of the 2d array and column c from the state
+		for (int i = 0; i < 4; i++)
+		{	//i is index of row for the 2d array
+			byte sumOfProducts = 0x00;
+			for (int j = 0; j < 4; j++)
+			{	//j is the column
+				sumOfProducts = sumOfProducts ^ multiply(invPolynomialA[i][j], theState[j][c]);
+			}
+			newColumnVals[i] = sumOfProducts;
 		}
+		//store calculated values in column c of the state
+		for (int i = 0; i < 4; i++)
+		{
+			theState[i][c] = newColumnVals[i];
+		}
+		//loop runs again on every column of the state
 	}
+}
+
+void invAddRoundKey()
+{
+
+}
+
+//multiplies the polynomial representation of a by the polynomial x
+byte xtime(byte a)
+{
+	//check to see if first bit is 1
+	if ((a & 0x80) == 0x80)
+	{ //first bit is one
+		byte b = 0x1b;
+		a = a << 1; //left shift by 1
+		return a ^ b;
+	}
+	else
+	{ //first bit is zero
+		return a;
+	}
+}
+
+//multiplies the polynomial representation of a by the polynomial x^n
+byte x_nTime(byte a, int n)
+{
+	if (n == 0)
+	{ //base case
+		return a;
+	}
+	else
+	{
+		return x_nTime(xtime(a), n - 1);
+	}
+}
+
+byte multiply(byte a, byte b)
+{
+	byte sumOfProducts = 0x00;
+	int n = 7;
+	for (byte i = 0x80; i > 0x00;)
+	{
+		if ((i & a) == i)
+		{ //check to see if the polynomial of power n has a coeffcient of 1
+			sumOfProducts = sumOfProducts ^ x_nTime(a, n);
+		}
+		i = i >> 1;
+		n--;
+	}
+}
+
+void expandKey(unsigned char* key)
+{
+
 }
 
 void main() {
