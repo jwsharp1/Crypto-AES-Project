@@ -7,6 +7,9 @@
 /* PROGRAMMER NOTES SECTION
 
 shiftRows and invShift Rows tested to be working.
+'theState' renamed to just 'state'
+the program currently only accepts messages of length 16 characters
+roundkey was copied from reference. I am trying to code it in a different way that isn't just a copy
 
 */
 
@@ -20,7 +23,9 @@ using namespace std;
 //********************* Global Variables *************************
 int Nb = 4;
 int Nr, Nk = 0;
-byte theState[4][4] = { { 'a', 'b', 'c', 'd' },
+byte *keySchedule;
+byte roundKey[240];
+byte state[4][4] = { { 'a', 'b', 'c', 'd' },
 						{ 'e', 'f', 'g', 'h' },
 						{ 'i', 'j', 'k', 'l' },
 						{ 'm', 'n', 'o', 'p' } };
@@ -28,8 +33,9 @@ byte theState[4][4] = { { 'a', 'b', 'c', 'd' },
 //********************* Forward Declarations *********************
 int sBoxLookup(int x);
 void userInput();
+void cipher(char *message);
 
-//transformations
+// Transformations
 void subBytes();
 void shiftRows();
 void mixColumns();
@@ -39,14 +45,24 @@ void invSubBytes();
 void invMixColumns();
 void invAddRoundKey();
 
-//arithmetic
-//note addition is equal to bitwise xor so use ^
+// Arithmetic
+// note addition is equal to bitwise xor so use ^
 byte xtime(byte a);
 byte x_nTime(byte a, int n);
 byte multiply(byte a, byte b);
 
 void expandKey(unsigned char* key);
+byte subWord(byte *input);
+byte rotWord(byte *input);
+byte rCon(int i);
 //****************************************************************
+//****************************************************************
+
+
+//****************************************************************
+//*********************** DEBUGGING ******************************
+void statePrinter();
+// ***************************************************************
 //****************************************************************
 
 
@@ -73,48 +89,56 @@ int sBoxLookup(int x) {				//SBox is a hex table that is used in the SubBytes() 
 
 // This function recieves the input message to be encoded and the user's private key.
 void userInput() {
-	char message[16];
+	char message[16];  // accept messages up to 16 characters long until CTR is implemented
 	char key[32];
+
 	cout << "Enter the message to be encoded:\n" << endl;
-	cin.getline(message, 16, '\n');							// cin.getline() is used to avoid a buffer overflow attack. cin.getline() ignores characters that proceed the terminating character '\n'
+	cin.getline(message, 16, '\n');		// cin.getline() is used to avoid a buffer overflow attack. cin.getline() ignores characters that proceed the terminating character '\n'
 	cout << "Enter your private key:\n" << endl;
 	cin.getline(key, 16, '\n');
 
+	// convert the incoming message to unsigned chars
+	byte *unsignedMsg = (byte*)message;
+
+
+	cipher(message);
 	//expandKey(message);
 }
 
-void subBytes() {					// this function replaces the values in the state array with values from the SBox table
+// this function replaces the values in the state array with values from the SBox table
+void subBytes() {
 	for (int i = 0; i < 4; i++) {
 		for (int j = 0; j < 4; j++) {
-			theState[i][j] = sBoxLookup(theState[i][j]);
+			state[i][j] = sBoxLookup(state[i][j]);
 		}
 	}
 }
 
+// this function shifts the rows of the state
 void shiftRows() {
 	byte tempRowVal;
 
-	// SECOND ROW SHIFTS: shift the row one column to the left															___________
-	tempRowVal = theState[1][0];		// copy col 0 to temp														  0|__|__|__|__| NO SHIFT
-	theState[1][0] = theState[1][1];	// move col 1 to 0 position									 shift 1 left ->  1|__|__|__|__| SECOND ROW SHIFT
-	theState[1][1] = theState[1][2];	// move col 2 to 1 position									 shift 2 left ->  2|__|__|__|__| THIRD ROW SHIFT
-	theState[1][2] = theState[1][3];	// move col 3 to 2 position									 shift 3 left ->  3|__|__|__|__| FOURTH ROW SHIFT
-	theState[1][3] = tempRowVal;		// wrap around; copy original col 0 to 3 position
+	// SECOND ROW SHIFTS: shift the row one column to the left													___________
+	tempRowVal = state[1][0];	// copy col 0 to temp														  0|__|__|__|__| NO SHIFT
+	state[1][0] = state[1][1];	// move col 1 to 0 position									 shift 1 left ->  1|__|__|__|__| SECOND ROW SHIFT
+	state[1][1] = state[1][2];	// move col 2 to 1 position									 shift 2 left ->  2|__|__|__|__| THIRD ROW SHIFT
+	state[1][2] = state[1][3];	// move col 3 to 2 position									 shift 3 left ->  3|__|__|__|__| FOURTH ROW SHIFT
+	state[1][3] = tempRowVal;	// wrap around; copy original col 0 to 3 position
 
-										// THIRD ROW SHIFTS: shift the second row two columns to the left
-	tempRowVal = theState[2][0];		// copy col 0 to temp
-	theState[2][0] = theState[2][2];	// copy col 2 to col 0
-	theState[2][2] = tempRowVal;		// copy tempRowVal to col 2
-	tempRowVal = theState[2][1];		// copy col 1 to temp
-	theState[2][1] = theState[2][3];	// copy col 3 to col 1
-	theState[2][3] = tempRowVal;		// copy the temp to col 3
+								// THIRD ROW SHIFTS: shift the second row two columns to the left
+	tempRowVal = state[2][0];	// copy col 0 to temp
+	state[2][0] = state[2][2];	// copy col 2 to col 0
+	state[2][2] = tempRowVal;	// copy tempRowVal to col 2
+	tempRowVal = state[2][1];	// copy col 1 to temp
+	state[2][1] = state[2][3];	// copy col 3 to col 1
+	state[2][3] = tempRowVal;	// copy the temp to col 3
 
-										// FOURTH ROW SHIFTS: shifts the row values three columns to the left (equivalent to shifting right by 1)
-	tempRowVal = theState[3][0];		// copy col 0 to temp
-	theState[3][0] = theState[3][3];	// copy col 3 to col 0
-	theState[3][3] = theState[3][2];	// copy col 2 to col 3
-	theState[3][2] = theState[3][1];	// copy col 1 to col 2
-	theState[3][1] = tempRowVal;;		// copy temp to col 1
+								// FOURTH ROW SHIFTS: shifts the row values three columns to the left (equivalent to shifting right by 1)
+	tempRowVal = state[3][0];	// copy col 0 to temp
+	state[3][0] = state[3][3];	// copy col 3 to col 0
+	state[3][3] = state[3][2];	// copy col 2 to col 3
+	state[3][2] = state[3][1];	// copy col 1 to col 2
+	state[3][1] = tempRowVal;;	// copy temp to col 1
 }
 
 void mixColumns()
@@ -134,48 +158,58 @@ void mixColumns()
 			byte sumOfProducts = 0x00;
 			for (int j = 0; j < 4; j++)
 			{	//j is the column
-				sumOfProducts = sumOfProducts ^ multiply(polynomialA[i][j], theState[j][c]);
+				sumOfProducts = sumOfProducts ^ multiply(polynomialA[i][j], state[j][c]);
 			}
 			newColumnVals[i] = sumOfProducts;
 		}
 		//store calculated values in column c of the state
 		for (int i = 0; i < 4; i++)
 		{
-			theState[i][c] = newColumnVals[i];
+			state[i][c] = newColumnVals[i];
 		}
 		//loop runs again on every column of the state
 	}
 }
 
-void addRoundKey()
+// stealy the code from reference.cpp
+void addRoundKey(int round)
 {
+	for (int i = 0; i < 4; i++) {
+		for (int j = 0; j < 4; j++) {
+			state[j][i] ^= roundKey[round * Nb * 4 + i * Nb + j];
+		}
+	}
 
+	for (int c = 0; c < Nb; c++) {
+		state[0][c] = state[0][c] ^ 
+	}
 }
 
+// this function reverts the shifts performed by the shiftRows() step
 void invShiftRows() {
 	byte tempRowVal;
 
-	// SECOND ROW SHIFTS: shift the row one column to the right															___________
-	tempRowVal = theState[1][0];		// copy col 0 to temp														  0|__|__|__|__| NO SHIFT
-	theState[1][0] = theState[1][3];	// move col 3 to 0 position									shift 1 right ->  1|__|__|__|__| SECOND ROW SHIFT
-	theState[1][3] = theState[1][2];	// move col 2 to 3 position									shift 2 right ->  2|__|__|__|__| THIRD ROW SHIFT
-	theState[1][2] = theState[1][1];	// move col 1 to 2 position									shift 3 right ->  3|__|__|__|__| FOURTH ROW SHIFT
-	theState[1][1] = tempRowVal;		// copy original col 0 to 1 position
+	// SECOND ROW SHIFTS: shift the row one column to the right													___________
+	tempRowVal = state[1][0];	// copy col 0 to temp														  0|__|__|__|__| NO SHIFT
+	state[1][0] = state[1][3];	// move col 3 to 0 position									shift 1 right ->  1|__|__|__|__| SECOND ROW SHIFT
+	state[1][3] = state[1][2];	// move col 2 to 3 position									shift 2 right ->  2|__|__|__|__| THIRD ROW SHIFT
+	state[1][2] = state[1][1];	// move col 1 to 2 position									shift 3 right ->  3|__|__|__|__| FOURTH ROW SHIFT
+	state[1][1] = tempRowVal;	// copy original col 0 to 1 position
 
 	// THIRD ROW SHIFTS: shift the second row two columns to the right
-	tempRowVal = theState[2][0];		// copy col 0 to temp
-	theState[2][0] = theState[2][2];	// copy col 2 to col 0
-	theState[2][2] = tempRowVal;		// copy tempRowVal to col 2
-	tempRowVal = theState[2][1];		// copy col 1 to temp
-	theState[2][1] = theState[2][3];	// copy col 3 to col 1
-	theState[2][3] = tempRowVal;		// copy the temp to col 3
+	tempRowVal = state[2][0];	// copy col 0 to temp
+	state[2][0] = state[2][2];	// copy col 2 to col 0
+	state[2][2] = tempRowVal;	// copy tempRowVal to col 2
+	tempRowVal = state[2][1];	// copy col 1 to temp
+	state[2][1] = state[2][3];	// copy col 3 to col 1
+	state[2][3] = tempRowVal;	// copy the temp to col 3
 
 	// FOURTH ROW SHIFTS: shifts the row values three columns to the right (equivalent to shifting left by 1)
-	tempRowVal = theState[3][0];		// copy col 0 to temp
-	theState[3][0] = theState[3][1];	// copy col 1 to col 0
-	theState[3][1] = theState[3][2];	// copy col 2 to col 1
-	theState[3][2] = theState[3][3];	// copy col 3 to col 2
-	theState[3][3] = tempRowVal;;		// copy temp to col 3
+	tempRowVal = state[3][0];	// copy col 0 to temp
+	state[3][0] = state[3][1];	// copy col 1 to col 0
+	state[3][1] = state[3][2];	// copy col 2 to col 1
+	state[3][2] = state[3][3];	// copy col 3 to col 2
+	state[3][3] = tempRowVal;;	// copy temp to col 3
 }
 
 void invSubBytes()
@@ -200,20 +234,20 @@ void invMixColumns()
 			byte sumOfProducts = 0x00;
 			for (int j = 0; j < 4; j++)
 			{	//j is the column
-				sumOfProducts = sumOfProducts ^ multiply(invPolynomialA[i][j], theState[j][c]);
+				sumOfProducts = sumOfProducts ^ multiply(invPolynomialA[i][j], state[j][c]);
 			}
 			newColumnVals[i] = sumOfProducts;
 		}
 		//store calculated values in column c of the state
 		for (int i = 0; i < 4; i++)
 		{
-			theState[i][c] = newColumnVals[i];
+			state[i][c] = newColumnVals[i];
 		}
 		//loop runs again on every column of the state
 	}
 }
 
-void invAddRoundKey()
+void invAddRoundKey(int round)
 {
 
 }
@@ -264,11 +298,72 @@ byte multiply(byte a, byte b)
 	return NULL;
 }
 
-void expandKey(unsigned char* key)
-{
+//void expandKey(unsigned char* key)
+//{
+//	keySchedule = new byte[Nb*(Nk + 1)];
+//
+//	for (int i = 0; i < Nk; i++)
+//	{
+//
+//	}
+//}
 
+//*byte subWord(byte *input)
+//{
+//	byte *output = new byte[4];
+//	for (int i = 0; i < 4; i++)
+//	{
+//		*output[i] = sBox(input[i]);
+//	}
+//	return output;
+//}
+//
+//*byte rotWord(byte *input)
+//{
+//	byte *output = new byte[4];
+//	byte temp = *input[0];
+//	for (int i = 0; i < 3; i++)
+//	{
+//		*output[i] = *output[i + 1];
+//	}
+//	*output[3] = temp;
+//	return output;
+//}
+//
+//*byte rCon(int i)
+//{
+//	byte *output = { 0x00, 0x00, 0x00, 0x00 };
+//	byte temp = 0x01;
+//	for (int j = 1; j < i; j++)
+//	{
+//		temp = temp << 1;
+//	}
+//	*output[0] = temp;
+//	return output;
+//}
+
+void cipher(char *message) {
+
+	// copy the input message into the state array
+	for (int r = 0; r < 4; r++) {
+		for (int c = 0; c < Nb; c++) {
+			state[r][c] = message[r + 4*c];
+		}
+	}
+
+	
 }
 
 void main() {
 	userInput();
+}
+
+// calling this function will print the state array
+void statePrinter() {
+	for (int i = 0; i < 4; i++) {
+		for (int j = 0; j < 4; j++) {
+			cout << state[i][j] << " ";
+		}
+		cout << endl;
+	}
 }
