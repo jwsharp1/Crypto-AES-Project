@@ -97,10 +97,6 @@ void userInput() {
 	cout << "Enter your private key:\n" << endl;
 	cin.getline(key, 16, '\n');
 
-	// convert the incoming message to unsigned chars
-	byte *unsignedMsg = (byte*)message;
-
-
 	cipher(message);
 	//expandKey(message);
 }
@@ -180,9 +176,9 @@ void addRoundKey(int round)
 		}
 	}
 
-	for (int c = 0; c < Nb; c++) {
-		state[0][c] = state[0][c] ^ 
-	}
+	//for (int c = 0; c < Nb; c++) {
+	//	state[0][c] = state[0][c] ^ 
+	//}
 }
 
 // this function reverts the shifts performed by the shiftRows() step
@@ -343,14 +339,18 @@ byte multiply(byte a, byte b)
 //}
 
 void cipher(char *message) {
+	
+	// convert the message to unsigned chars
+	byte *unsignedMsg = (byte*)message;
 
 	// copy the input message into the state array
 	for (int r = 0; r < 4; r++) {
 		for (int c = 0; c < Nb; c++) {
-			state[r][c] = message[r + 4*c];
+			state[r][c] = unsignedMsg[r + 4*c];
 		}
 	}
 
+	statePrinter();
 	
 }
 
