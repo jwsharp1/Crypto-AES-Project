@@ -3,6 +3,13 @@
 ----Semester:	Spring 2016
 ----Teacher:	Rida Bazzi	*/
 
+
+/* PROGRAMMER NOTES SECTION
+
+shiftRows and invShift Rows tested to be working.
+
+*/
+
 #include <iostream>
 using namespace std;
 
@@ -13,7 +20,10 @@ using namespace std;
 //********************* Global Variables *************************
 int Nb = 4;
 int Nr, Nk = 0;
-byte theState[4][4];
+byte theState[4][4] = { { 'a', 'b', 'c', 'd' },
+						{ 'e', 'f', 'g', 'h' },
+						{ 'i', 'j', 'k', 'l' },
+						{ 'm', 'n', 'o', 'p' } };
 //****************************************************************
 //********************* Forward Declarations *********************
 int sBoxLookup(int x);
@@ -70,7 +80,7 @@ void userInput() {
 	cout << "Enter your private key:\n" << endl;
 	cin.getline(key, 16, '\n');
 
-	expandKey(message);
+	//expandKey(message);
 }
 
 void subBytes() {					// this function replaces the values in the state array with values from the SBox table
@@ -142,9 +152,30 @@ void addRoundKey()
 
 }
 
-void invShiftRows()
-{
+void invShiftRows() {
+	byte tempRowVal;
 
+	// SECOND ROW SHIFTS: shift the row one column to the right															___________
+	tempRowVal = theState[1][0];		// copy col 0 to temp														  0|__|__|__|__| NO SHIFT
+	theState[1][0] = theState[1][3];	// move col 3 to 0 position									shift 1 right ->  1|__|__|__|__| SECOND ROW SHIFT
+	theState[1][3] = theState[1][2];	// move col 2 to 3 position									shift 2 right ->  2|__|__|__|__| THIRD ROW SHIFT
+	theState[1][2] = theState[1][1];	// move col 1 to 2 position									shift 3 right ->  3|__|__|__|__| FOURTH ROW SHIFT
+	theState[1][1] = tempRowVal;		// copy original col 0 to 1 position
+
+	// THIRD ROW SHIFTS: shift the second row two columns to the right
+	tempRowVal = theState[2][0];		// copy col 0 to temp
+	theState[2][0] = theState[2][2];	// copy col 2 to col 0
+	theState[2][2] = tempRowVal;		// copy tempRowVal to col 2
+	tempRowVal = theState[2][1];		// copy col 1 to temp
+	theState[2][1] = theState[2][3];	// copy col 3 to col 1
+	theState[2][3] = tempRowVal;		// copy the temp to col 3
+
+	// FOURTH ROW SHIFTS: shifts the row values three columns to the right (equivalent to shifting left by 1)
+	tempRowVal = theState[3][0];		// copy col 0 to temp
+	theState[3][0] = theState[3][1];	// copy col 1 to col 0
+	theState[3][1] = theState[3][2];	// copy col 2 to col 1
+	theState[3][2] = theState[3][3];	// copy col 3 to col 2
+	theState[3][3] = tempRowVal;;		// copy temp to col 3
 }
 
 void invSubBytes()
@@ -229,6 +260,8 @@ byte multiply(byte a, byte b)
 		i = i >> 1;
 		n--;
 	}
+
+	return NULL;
 }
 
 void expandKey(unsigned char* key)
