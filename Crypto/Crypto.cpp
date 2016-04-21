@@ -13,6 +13,8 @@
 -roundkey was copied from reference. I am trying to code it in a different way that isn't just a copy.
 -added the invsBox table for the invSubBytes function
 
+-discovered and marked issue with MixColumns
+
 */
 
 #include <iostream>
@@ -53,7 +55,7 @@ byte xtime(byte a);
 byte x_nTime(byte a, int n);
 byte multiply(byte a, byte b);
 
-void expandKey(unsigned char* key);
+void expandKey(byte* key);
 byte subWord(byte *input);
 byte rotWord(byte *input);
 byte rCon(int i);
@@ -120,8 +122,7 @@ void userInput() {
 	cout << "Enter your private key:\n" << endl;
 	cin.getline(key, 16, '\n');
 
-	cipher(message);
-	//expandKey(message);
+	cipher(message);  // send the message to the cipher code
 }
 
 // this function replaces the values in the state array with values from the S-Box table
@@ -177,7 +178,7 @@ void mixColumns()
 			byte sumOfProducts = 0x00;
 			for (int j = 0; j < 4; j++)
 			{	//j is the column
-				sumOfProducts = sumOfProducts ^ multiply(polynomialA[i][j], state[j][c]);
+				sumOfProducts = sumOfProducts ^ multiply(polynomialA[i][j], state[j][c]);		// <-- ISSUE: the result of this is always ""
 			}
 			newColumnVals[i] = sumOfProducts;
 		}
@@ -322,7 +323,7 @@ byte multiply(byte a, byte b)
 	return NULL;
 }
 
-//void expandKey(unsigned char* key)
+//void expandKey(byte* key)
 //{
 //	keySchedule = new byte[Nb*(Nk + 1)];
 //
@@ -384,6 +385,10 @@ void cipher(char *message) {
 void main() {
 	userInput();
 
+	// run these debug commands
+	statePrinter(); // prints a-p
+	mixColumns(); // mix columns
+	statePrinter(); // blank output
 }
 
 // calling this function will print the state array
